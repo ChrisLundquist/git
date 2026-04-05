@@ -405,6 +405,9 @@ jobs:
           cc: gcc
         - jobname: linux-musl-meson
           image: alpine:latest
+        - jobname: linux-zstd
+          image: ubuntu:rolling
+          cc: gcc
         # Supported until 2025-04-02.
         - jobname: linux32
           image: i386/ubuntu:focal

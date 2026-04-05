@@ -369,6 +369,9 @@ linux-meson)
 linux-musl-meson)
 	MESONFLAGS="$MESONFLAGS -Dtest_utf8_locale=C.UTF-8"
 	;;
+linux-zstd)
+	MAKEFLAGS="$MAKEFLAGS USE_ZSTD=YesCompiledWithIt"
+	;;
 linux-leaks|linux-reftable-leaks)
 	export SANITIZE=leak
 	export NO_CVS_TESTS=LetsSaveSomeTime
