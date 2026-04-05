@@ -3,6 +3,9 @@
 
 #include "git-compat-util.h"
 #include "git-zlib.h"
+#ifdef USE_ZSTD
+#include <zstd.h>
+#endif
 #include "config.h"
 #include "builtin.h"
 #include "exec-cmd.h"
@@ -817,6 +820,9 @@ void get_version_info(struct strbuf *buf, int show_build_options)
 		strbuf_addf(buf, "zlib-ng: %s\n", ZLIBNG_VERSION);
 #elif defined ZLIB_VERSION
 		strbuf_addf(buf, "zlib: %s\n", ZLIB_VERSION);
+#endif
+#ifdef USE_ZSTD
+		strbuf_addf(buf, "zstd: %s\n", ZSTD_VERSION_STRING);
 #endif
 		strbuf_addf(buf, "SHA-1: %s\n", SHA1_BACKEND);
 #if defined SHA1_UNSAFE_BACKEND
