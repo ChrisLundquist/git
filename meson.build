@@ -983,6 +983,15 @@ if zlib_backend in ['auto', 'zlib']
   libgit_dependencies += zlib
 endif
 
+zstd = dependency('libzstd', required: get_option('zstd'))
+if zstd.found()
+  libgit_c_args += '-DUSE_ZSTD'
+  libgit_dependencies += zstd
+  build_options_config.set('USE_ZSTD', 'YesCompiledWithIt')
+else
+  build_options_config.set('USE_ZSTD', '')
+endif
+
 threads = dependency('threads', required: false)
 if threads.found()
   libgit_dependencies += threads
@@ -2340,6 +2349,7 @@ summary({
   'iconv': iconv,
   'pcre2': pcre2,
   'perl': perl_features_enabled,
+  'zstd': zstd,
   'python': target_python.found(),
   'rust': rust_option.allowed(),
 }, section: 'Auto-detected features', bool_yn: true)

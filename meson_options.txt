@@ -59,6 +59,8 @@ option('python', type: 'feature', value: 'auto',
   description: 'Build tools written in Python.')
 option('regex', type: 'feature', value: 'auto',
   description: 'Use the system-provided regex library instead of the bundled one.')
+option('zstd', type: 'feature', value: 'auto',
+  description: 'Support zstd as an alternative compression algorithm for object storage.')
 
 # Backends.
 option('csprng_backend', type: 'combo', value: 'auto', choices: ['auto', 'arc4random', 'arc4random_bsd', 'getrandom', 'getentropy', 'rtlgenrandom', 'openssl', 'urandom'],
