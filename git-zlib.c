@@ -155,6 +155,35 @@ static int git_inflate_zstd(git_zstream *strm, int flush UNUSED)
 	return Z_OK;
 }
 
+static int git_deflate_zstd(git_zstream *strm, int flush)
+{
+	ZSTD_EndDirective end_op;
+	ZSTD_inBuffer input = { strm->next_in, strm->avail_in, 0 };
+	ZSTD_outBuffer output = { strm->next_out, strm->avail_out, 0 };
+	size_t ret;
+
+	end_op = (flush == Z_FINISH) ? ZSTD_e_end : ZSTD_e_continue;
+
+	ret = ZSTD_compressStream2(strm->zstd_cctx, &output, &input, end_op);
+	if (ZSTD_isError(ret))
+		die("zstd deflate: %s", ZSTD_getErrorName(ret));
+
+	strm->next_in += input.pos;
+	strm->avail_in -= input.pos;
+	strm->total_in += input.pos;
+	strm->next_out += output.pos;
+	strm->avail_out -= output.pos;
+	strm->total_out += output.pos;
+
+	if (flush == Z_FINISH && ret == 0)
+		return Z_STREAM_END;
+
+	if (input.pos == 0 && output.pos == 0)
+		return Z_BUF_ERROR;
+
+	return Z_OK;
+}
+
 #endif /* USE_ZSTD */
 
 void git_inflate_init(git_zstream *strm)
@@ -277,6 +306,10 @@ int git_inflate(git_zstream *strm, int flush)
 
 unsigned long git_deflate_bound(git_zstream *strm, unsigned long size)
 {
+#ifdef USE_ZSTD
+	if (strm->backend == GIT_COMPRESSION_ZSTD)
+		return ZSTD_compressBound(size);
+#endif
 	return deflateBound(&strm->z, size);
 }
 
@@ -285,6 +318,37 @@ void git_deflate_init(git_zstream *strm, int level)
 	int status;
 
 	memset(strm, 0, sizeof(*strm));
+
+#ifdef USE_ZSTD
+	if (core_compression_algorithm == GIT_COMPRESSION_ZSTD) {
+		int zstd_level;
+
+		strm->backend = GIT_COMPRESSION_ZSTD;
+		strm->zstd_cctx = ZSTD_createCCtx();
+		if (!strm->zstd_cctx)
+			die("ZSTD_createCCtx: out of memory");
+
+		/*
+		 * Map zlib-style levels: Z_DEFAULT_COMPRESSION (-1) and
+		 * Z_BEST_SPEED (1) both map to zstd level 3, a reasonable
+		 * default. Other levels pass through directly — zstd
+		 * accepts 1-22 and clamps out-of-range values.
+		 */
+		if (level == Z_DEFAULT_COMPRESSION || level == Z_BEST_SPEED)
+			zstd_level = 3;
+		else if (level < 1)
+			zstd_level = 1;
+		else
+			zstd_level = level;
+
+		ZSTD_CCtx_setParameter(strm->zstd_cctx,
+				       ZSTD_c_compressionLevel, zstd_level);
+		ZSTD_CCtx_setParameter(strm->zstd_cctx,
+				       ZSTD_c_checksumFlag, 1);
+		return;
+	}
+#endif
+
 	strm->backend = GIT_COMPRESSION_ZLIB;
 	zlib_pre_call(strm);
 	status = deflateInit(&strm->z, level);
@@ -334,6 +398,14 @@ int git_deflate_abort(git_zstream *strm)
 {
 	int status;
 
+#ifdef USE_ZSTD
+	if (strm->backend == GIT_COMPRESSION_ZSTD) {
+		ZSTD_freeCCtx(strm->zstd_cctx);
+		strm->zstd_cctx = NULL;
+		return Z_OK;
+	}
+#endif
+
 	zlib_pre_call(strm);
 	status = deflateEnd(&strm->z);
 	zlib_post_call(strm, status);
@@ -354,6 +426,14 @@ int git_deflate_end_gently(git_zstream *strm)
 {
 	int status;
 
+#ifdef USE_ZSTD
+	if (strm->backend == GIT_COMPRESSION_ZSTD) {
+		ZSTD_freeCCtx(strm->zstd_cctx);
+		strm->zstd_cctx = NULL;
+		return Z_OK;
+	}
+#endif
+
 	zlib_pre_call(strm);
 	status = deflateEnd(&strm->z);
 	zlib_post_call(strm, status);
@@ -363,6 +443,11 @@ int git_deflate_end_gently(git_zstream *strm)
 int git_deflate(git_zstream *strm, int flush)
 {
 	int status;
+
+#ifdef USE_ZSTD
+	if (strm->backend == GIT_COMPRESSION_ZSTD)
+		return git_deflate_zstd(strm, flush);
+#endif
 
 	for (;;) {
 		zlib_pre_call(strm);
