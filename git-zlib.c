@@ -5,6 +5,10 @@
 #include "git-compat-util.h"
 #include "git-zlib.h"
 
+#ifdef USE_ZSTD
+extern int core_compression_algorithm;
+#endif
+
 static const char *zerr_to_string(int status)
 {
 	switch (status) {
@@ -80,7 +84,28 @@ static void zlib_post_call(git_zstream *s, int status)
 	s->avail_out -= bytes_produced;
 }
 
-void git_inflate_init(git_zstream *strm)
+#ifdef USE_ZSTD
+
+/* zstd magic number: 0xFD2FB528 stored little-endian */
+static int is_zstd_compressed(const unsigned char *data, unsigned long len)
+{
+	if (len < 4)
+		return 0;
+	return data[0] == 0x28 &&
+	       data[1] == 0xB5 &&
+	       data[2] == 0x2F &&
+	       data[3] == 0xFD;
+}
+
+static void zstd_inflate_init(git_zstream *strm)
+{
+	strm->backend = GIT_COMPRESSION_ZSTD;
+	strm->zstd_dctx = ZSTD_createDCtx();
+	if (!strm->zstd_dctx)
+		die("ZSTD_createDCtx: out of memory");
+}
+
+static void zlib_inflate_init_late(git_zstream *strm)
 {
 	int status;
 
@@ -92,6 +117,72 @@ void git_inflate_init(git_zstream *strm)
 		return;
 	die("inflateInit: %s (%s)", zerr_to_string(status),
 	    strm->z.msg ? strm->z.msg : "no message");
+}
+
+static int git_inflate_zstd(git_zstream *strm, int flush UNUSED)
+{
+	ZSTD_inBuffer input = { strm->next_in, strm->avail_in, 0 };
+	ZSTD_outBuffer output = { strm->next_out, strm->avail_out, 0 };
+	size_t ret;
+
+	/*
+	 * Unlike zlib, zstd has no trailing bytes to consume after frame
+	 * completion. If the frame was already fully decompressed in a
+	 * prior call, immediately signal completion.
+	 */
+	if (strm->zstd_inflate_done)
+		return Z_STREAM_END;
+
+	ret = ZSTD_decompressStream(strm->zstd_dctx, &output, &input);
+	if (ZSTD_isError(ret))
+		die("zstd inflate: %s", ZSTD_getErrorName(ret));
+
+	strm->next_in += input.pos;
+	strm->avail_in -= input.pos;
+	strm->total_in += input.pos;
+	strm->next_out += output.pos;
+	strm->avail_out -= output.pos;
+	strm->total_out += output.pos;
+
+	if (ret == 0) {
+		strm->zstd_inflate_done = 1;
+		return Z_STREAM_END;
+	}
+
+	if (input.pos == 0 && output.pos == 0)
+		return Z_BUF_ERROR;
+
+	return Z_OK;
+}
+
+#endif /* USE_ZSTD */
+
+void git_inflate_init(git_zstream *strm)
+{
+#ifdef USE_ZSTD
+	/*
+	 * With zstd support, defer backend selection until the first
+	 * git_inflate() call, where we auto-detect the format from
+	 * the magic bytes in the compressed data.
+	 *
+	 * Do NOT memset here — some callers (e.g. unpack_loose_header)
+	 * set buffer pointers before calling init.
+	 */
+	strm->backend = GIT_COMPRESSION_AUTO;
+	strm->zstd_dctx = NULL;
+	strm->zstd_inflate_done = 0;
+#else
+	int status;
+
+	strm->backend = GIT_COMPRESSION_ZLIB;
+	zlib_pre_call(strm);
+	status = inflateInit(&strm->z);
+	zlib_post_call(strm, status);
+	if (status == Z_OK)
+		return;
+	die("inflateInit: %s (%s)", zerr_to_string(status),
+	    strm->z.msg ? strm->z.msg : "no message");
+#endif
 }
 
 void git_inflate_init_gzip_only(git_zstream *strm)
@@ -116,6 +207,16 @@ void git_inflate_end(git_zstream *strm)
 {
 	int status;
 
+#ifdef USE_ZSTD
+	if (strm->backend == GIT_COMPRESSION_ZSTD) {
+		ZSTD_freeDCtx(strm->zstd_dctx);
+		strm->zstd_dctx = NULL;
+		return;
+	}
+	if (strm->backend == GIT_COMPRESSION_AUTO)
+		return; /* never used, nothing to clean up */
+#endif
+
 	zlib_pre_call(strm);
 	status = inflateEnd(&strm->z);
 	zlib_post_call(strm, status);
@@ -128,6 +229,17 @@ void git_inflate_end(git_zstream *strm)
 int git_inflate(git_zstream *strm, int flush)
 {
 	int status;
+
+#ifdef USE_ZSTD
+	if (strm->backend == GIT_COMPRESSION_AUTO) {
+		if (is_zstd_compressed(strm->next_in, strm->avail_in))
+			zstd_inflate_init(strm);
+		else
+			zlib_inflate_init_late(strm);
+	}
+	if (strm->backend == GIT_COMPRESSION_ZSTD)
+		return git_inflate_zstd(strm, flush);
+#endif
 
 	for (;;) {
 		zlib_pre_call(strm);

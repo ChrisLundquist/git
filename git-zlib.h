@@ -3,6 +3,10 @@
 
 #include "compat/zlib-compat.h"
 
+#ifdef USE_ZSTD
+#include <zstd.h>
+#endif
+
 enum git_compression_algorithm {
 	GIT_COMPRESSION_ZLIB = 0,
 	GIT_COMPRESSION_ZSTD = 1,
@@ -11,6 +15,11 @@ enum git_compression_algorithm {
 
 typedef struct git_zstream {
 	struct z_stream_s z;
+#ifdef USE_ZSTD
+	ZSTD_CCtx *zstd_cctx;
+	ZSTD_DCtx *zstd_dctx;
+	unsigned zstd_inflate_done : 1;
+#endif
 	enum git_compression_algorithm backend;
 	unsigned long avail_in;
 	unsigned long avail_out;
