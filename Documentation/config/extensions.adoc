@@ -3,6 +3,15 @@ extensions.*::
 	`core.repositoryFormatVersion` is not `1`. See
 	linkgit:gitrepository-layout[5].
 +
+compressionFormat:::
+	Specify the compression algorithm used for object storage.  The
+	acceptable values are `zlib` (default) and `zstd`.  When set to
+	`zstd`, git uses zstd for compressing new objects while remaining
+	able to read existing zlib-compressed objects via auto-detection.
+	Older versions of git that do not understand this extension will
+	refuse to operate on the repository.  Requires git to be built
+	with `USE_ZSTD`.
++
 compatObjectFormat:::
 	Specify a compatibility hash algorithm to use.  The acceptable values
 	are `sha1` and `sha256`.  The value specified must be different from the

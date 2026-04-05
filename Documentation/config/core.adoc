@@ -408,6 +408,14 @@ core.compression::
 	If set, this provides a default to other compression variables,
 	such as `core.looseCompression` and `pack.compression`.
 
+core.compressionAlgorithm::
+	The compression algorithm used for new object storage. Accepted
+	values are "zlib" (default) and "zstd". Requires git to be built
+	with `USE_ZSTD` and the repository to have
+	`extensions.compressionFormat=zstd` set (which requires
+	`core.repositoryFormatVersion=1`). When set to "zstd", existing
+	zlib-compressed objects remain readable via auto-detection.
+
 core.looseCompression::
 	An integer -1..9, indicating the compression level for objects that
 	are not in a pack file. -1 is the zlib default. 0 means no
