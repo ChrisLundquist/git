@@ -3,6 +3,12 @@
 
 #include "compat/zlib-compat.h"
 
+enum git_compression_algorithm {
+	GIT_COMPRESSION_ZLIB = 0,
+	GIT_COMPRESSION_ZSTD = 1,
+	GIT_COMPRESSION_AUTO = 2,
+};
+
 typedef struct git_zstream {
 	struct z_stream_s z;
 	unsigned long avail_in;
