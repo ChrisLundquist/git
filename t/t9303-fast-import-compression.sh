@@ -59,4 +59,24 @@ large -c core.loosecompression=0
 small -c core.loosecompression=9
 EOF
 
+ZSTD_CONFIG='-c core.repositoryFormatVersion=1 -c extensions.compressionFormat=zstd -c core.compressionAlgorithm=zstd'
+
+test_expect_success ZSTD 'fast-import (packed) with zstd' '
+	test_when_finished "rm -f .git/objects/pack/pack-*.*" &&
+	test_when_finished "rm -rf .git/objects/??" &&
+	import_large -c fastimport.unpacklimit=0 \
+		$ZSTD_CONFIG -c core.compression=9 &&
+	sz=$(test_file_size .git/objects/pack/pack-*.pack) &&
+	test "$sz" -le 100000
+'
+
+test_expect_success ZSTD 'fast-import (loose) with zstd' '
+	test_when_finished "rm -f .git/objects/pack/pack-*.*" &&
+	test_when_finished "rm -rf .git/objects/??" &&
+	import_large -c fastimport.unpacklimit=9 \
+		$ZSTD_CONFIG -c core.loosecompression=9 &&
+	sz=$(test_file_size .git/objects/??/????*) &&
+	test "$sz" -le 100000
+'
+
 test_done

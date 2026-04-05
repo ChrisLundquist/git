@@ -35,4 +35,15 @@ large -c pack.compression=0
 small -c pack.compression=9
 EOF
 
+test_expect_success ZSTD 'pack-objects with zstd compression' '
+	test_when_finished "rm -f pack-*.*" &&
+	git -c core.repositoryFormatVersion=1 \
+	    -c extensions.compressionFormat=zstd \
+	    -c core.compressionAlgorithm=zstd \
+	    -c core.compression=9 \
+	    pack-objects pack <object-name &&
+	sz=$(test_file_size pack-*.pack) &&
+	test "$sz" -le 100000
+'
+
 test_done
