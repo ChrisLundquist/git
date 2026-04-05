@@ -1844,6 +1844,15 @@ else
 	EXTLIBS += -lz
 endif
 
+ifdef USE_ZSTD
+	BASIC_CFLAGS += -DUSE_ZSTD
+        ifdef ZSTD_PATH
+		BASIC_CFLAGS += -I$(ZSTD_PATH)/include
+		EXTLIBS += $(call libpath_template,$(ZSTD_PATH)/$(lib))
+        endif
+	EXTLIBS += -lzstd
+endif
+
 ifndef NO_OPENSSL
 	OPENSSL_LIBSSL = -lssl
         ifdef OPENSSLDIR

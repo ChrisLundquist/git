@@ -172,6 +172,7 @@ extern char *apply_default_whitespace;
 extern char *apply_default_ignorewhitespace;
 extern int zlib_compression_level;
 extern int pack_compression_level;
+extern int git_compression_algorithm; /* 0 = zlib, 1 = zstd */
 extern unsigned long pack_size_limit_cfg;
 
 extern int precomposed_unicode;

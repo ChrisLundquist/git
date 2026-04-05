@@ -56,6 +56,7 @@ char *apply_default_whitespace;
 char *apply_default_ignorewhitespace;
 int zlib_compression_level = Z_BEST_SPEED;
 int pack_compression_level = Z_DEFAULT_COMPRESSION;
+int git_compression_algorithm; /* 0 = zlib (default), 1 = zstd */
 int fsync_object_files = -1;
 int use_fsync = -1;
 enum fsync_method fsync_method = FSYNC_METHOD_DEFAULT;
@@ -394,6 +395,31 @@ int git_default_core_config(const char *var, const char *value,
 			zlib_compression_level = level;
 		if (!pack_compression_seen)
 			pack_compression_level = level;
+		return 0;
+	}
+
+	if (!strcmp(var, "core.compressionalgorithm")) {
+		if (!value)
+			return config_error_nonbool(var);
+		if (!strcasecmp(value, "zlib"))
+			git_compression_algorithm = 0;
+		else if (!strcasecmp(value, "zstd")) {
+			git_compression_algorithm = 1;
+#ifdef USE_ZSTD
+			/*
+			 * Try to load a zstd dictionary from the git
+			 * directory. This is a no-op if already loaded
+			 * or if the file doesn't exist.
+			 */
+			if (the_repository->gitdir) {
+				char *dict_path = mkpathdup("%s/zstd-dict",
+					the_repository->gitdir);
+				git_zstd_load_dictionary(dict_path);
+				free(dict_path);
+			}
+#endif
+		} else
+			die(_("unknown compression algorithm '%s'"), value);
 		return 0;
 	}
 

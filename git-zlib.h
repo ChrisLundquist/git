@@ -3,8 +3,26 @@
 
 #include "compat/zlib-compat.h"
 
+#ifdef USE_ZSTD
+#include <zstd.h>
+
+void git_zstd_load_dictionary(const char *path);
+#endif
+
+enum git_compression_backend {
+	GIT_COMPRESSION_ZLIB = 0,
+	GIT_COMPRESSION_ZSTD = 1,
+	GIT_COMPRESSION_AUTO = 2, /* auto-detect on inflate */
+};
+
 typedef struct git_zstream {
 	struct z_stream_s z;
+#ifdef USE_ZSTD
+	ZSTD_CCtx *zstd_cctx;
+	ZSTD_DCtx *zstd_dctx;
+	unsigned zstd_inflate_done : 1;
+#endif
+	enum git_compression_backend backend;
 	unsigned long avail_in;
 	unsigned long avail_out;
 	unsigned long total_in;
