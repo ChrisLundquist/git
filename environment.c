@@ -401,16 +401,17 @@ int git_default_core_config(const char *var, const char *value,
 	if (!strcmp(var, "core.compressionalgorithm")) {
 		if (!value)
 			return config_error_nonbool(var);
-		if (!strcasecmp(value, "zlib"))
+		if (!strcasecmp(value, "zlib")) {
 			core_compression_algorithm = 0; /* GIT_COMPRESSION_ZLIB */
-		else if (!strcasecmp(value, "zstd")) {
+		} else if (!strcasecmp(value, "zstd")) {
 #ifdef USE_ZSTD
 			core_compression_algorithm = 1; /* GIT_COMPRESSION_ZSTD */
 #else
 			die(_("zstd compression requested but git was built without USE_ZSTD"));
 #endif
-		} else
+		} else {
 			die(_("unknown compression algorithm '%s'"), value);
+		}
 		return 0;
 	}
 

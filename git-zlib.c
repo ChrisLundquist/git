@@ -194,10 +194,11 @@ void git_inflate_init(git_zstream *strm)
 	 * git_inflate() call, where we auto-detect the format from
 	 * the magic bytes in the compressed data.
 	 *
-	 * Do NOT memset here — some callers (e.g. unpack_loose_header)
+	 * Do NOT memset here -- some callers (e.g. unpack_loose_header)
 	 * set buffer pointers before calling init.
 	 */
 	strm->backend = GIT_COMPRESSION_AUTO;
+	strm->zstd_cctx = NULL;
 	strm->zstd_dctx = NULL;
 	strm->zstd_inflate_done = 0;
 #else
@@ -223,6 +224,7 @@ void git_inflate_init_gzip_only(git_zstream *strm)
 	const int windowBits = 15 + 16;
 	int status;
 
+	strm->backend = GIT_COMPRESSION_ZLIB;
 	zlib_pre_call(strm);
 	status = inflateInit2(&strm->z, windowBits);
 	zlib_post_call(strm, status);
@@ -331,7 +333,7 @@ void git_deflate_init(git_zstream *strm, int level)
 		/*
 		 * Map zlib-style levels: Z_DEFAULT_COMPRESSION (-1) and
 		 * Z_BEST_SPEED (1) both map to zstd level 3, a reasonable
-		 * default. Other levels pass through directly — zstd
+		 * default. Other levels pass through directly -- zstd
 		 * accepts 1-22 and clamps out-of-range values.
 		 */
 		if (level == Z_DEFAULT_COMPRESSION || level == Z_BEST_SPEED)
