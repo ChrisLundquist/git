@@ -11,6 +11,7 @@ enum git_compression_algorithm {
 
 typedef struct git_zstream {
 	struct z_stream_s z;
+	enum git_compression_algorithm backend;
 	unsigned long avail_in;
 	unsigned long avail_out;
 	size_t total_in;
