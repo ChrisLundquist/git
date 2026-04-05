@@ -192,7 +192,8 @@ include shared.mak
 # big-endian format.
 #
 # Define NO_DEFLATE_BOUND if your zlib does not have deflateBound. Define
-# ZLIB_NG if you want to use zlib-ng instead of zlib.
+# ZLIB_NG if you want to use zlib-ng instead of zlib. Define USE_ZSTD
+# to enable zstd as an alternative compression algorithm for object storage.
 #
 # Define NO_NORETURN if using buggy versions of gcc 4.6+ and profile feedback,
 # as the compiler can crash (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=49299)
@@ -1843,6 +1844,15 @@ else
 		EXTLIBS += $(call libpath_template,$(ZLIB_PATH)/$(lib))
         endif
 	EXTLIBS += -lz
+endif
+
+ifdef USE_ZSTD
+	BASIC_CFLAGS += -DUSE_ZSTD
+        ifdef ZSTD_PATH
+		BASIC_CFLAGS += -I$(ZSTD_PATH)/include
+		EXTLIBS += $(call libpath_template,$(ZSTD_PATH)/$(lib))
+        endif
+	EXTLIBS += -lzstd
 endif
 
 ifndef NO_OPENSSL
