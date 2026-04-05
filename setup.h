@@ -189,6 +189,7 @@ struct repository_format {
 	int is_bare;
 	int hash_algo;
 	int compat_hash_algo;
+	int compression_algo; /* see git_compression_algorithm in git-zlib.h */
 	enum ref_storage_format ref_storage_format;
 	char *ref_storage_payload;
 	int sparse_index;

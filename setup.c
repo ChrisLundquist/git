@@ -713,6 +713,23 @@ static enum extension_result handle_extension(const char *var,
 	} else if (!strcmp(ext, "submodulepathconfig")) {
 		data->submodule_path_cfg = git_config_bool(var, value);
 		return EXTENSION_OK;
+	} else if (!strcmp(ext, "compressionformat")) {
+		if (!value)
+			return config_error_nonbool(var);
+		if (!strcasecmp(value, "zlib")) {
+			data->compression_algo = 0; /* GIT_COMPRESSION_ZLIB */
+			return EXTENSION_OK;
+		} else if (!strcasecmp(value, "zstd")) {
+#ifdef USE_ZSTD
+			data->compression_algo = 1; /* GIT_COMPRESSION_ZSTD */
+			return EXTENSION_OK;
+#else
+			return error(_("repository uses zstd compression, "
+				       "but git was built without USE_ZSTD"));
+#endif
+		}
+		return error(_("invalid value for '%s': '%s'"),
+			     "extensions.compressionFormat", value);
 	}
 	return EXTENSION_UNKNOWN;
 }
